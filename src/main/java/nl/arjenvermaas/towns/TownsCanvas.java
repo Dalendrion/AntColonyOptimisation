@@ -3,8 +3,6 @@ package nl.arjenvermaas.towns;
 import nl.arjenvermaas.animation.CanvasPanel;
 import nl.arjenvermaas.math.MyMath;
 import nl.arjenvermaas.matrix.FloatMatrix;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -13,14 +11,12 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 public class TownsCanvas extends CanvasPanel {
-    private static final Logger LOGGER = LoggerFactory.getLogger(TownsCanvas.class);
 
     private enum State {
         INIT_PATHS,
         FIND_ROAD,
         ANIMATE_ANTS,
         ANIMATE_ANTS_RETURN_HOME,
-        DECIDE_PATH,
         RESET_PATHS,
         DONE
     }
@@ -28,13 +24,14 @@ public class TownsCanvas extends CanvasPanel {
     private static final State initialState = State.INIT_PATHS;
     private static final State initialSubState = null;
 
-    private static final float animationSpeed = 5f;
+    private static final float animationSpeed = 200f;
     private static final float THRESHOLD = 0.0001f;
 
     private final AcoConfig config;
 
     private State state = initialState;
     private State subState = initialSubState;
+    private boolean hidePaths = false;
     private float animationProgress = 1;
     private List<Town> towns;
     private FloatMatrix distances;
@@ -71,8 +68,8 @@ public class TownsCanvas extends CanvasPanel {
         subState = State.RESET_PATHS;
     }
 
-    public void decidePath() {
-        subState = State.DECIDE_PATH;
+    public void hidePaths() {
+        hidePaths = true;
     }
 
     @Override
@@ -91,7 +88,7 @@ public class TownsCanvas extends CanvasPanel {
                     changeState(State.ANIMATE_ANTS_RETURN_HOME);
                     return;
                 }
-                List<List<Float>> desirabilities = getDesirabilities(remainingTownsPerPath, paths, distances, pheromones, config.distStrength(), config.distPower(), config.pheromonePower());
+                List<List<Float>> desirabilities = getDesirabilities(paths, remainingTownsPerPath, distances, pheromones, config.distStrength(), config.distPower(), config.pheromonePower());
                 List<Integer> chosenTowns = chooseNewTowns(remainingTownsPerPath, desirabilities);
                 moveAnts(chosenTowns, paths);
                 animationProgress = 0;
@@ -113,16 +110,8 @@ public class TownsCanvas extends CanvasPanel {
                         changeState(State.DONE);
                         return;
                     }
-                    LOGGER.info(pheromones.toString());
                     changeState(State.INIT_PATHS);
                 }
-                break;
-            case DECIDE_PATH:
-                pheromones.apply(f -> 0f);
-                for (int i = 0; i < shortestPath.size(); i++) {
-                    pheromones.set(shortestPath.get(i), shortestPath.get((i + 1) % shortestPath.size()), 1f);
-                }
-                changeState(State.DONE);
                 break;
             case RESET_PATHS:
                 resetPaths();
@@ -132,7 +121,7 @@ public class TownsCanvas extends CanvasPanel {
     }
 
     private List<Integer> findShortestPath(List<List<Integer>> paths, FloatMatrix distances, List<Integer> shortestPath) {
-        float minDistance = getPathLength(shortestPath, distances);
+        float minDistance = shortestPath == null ? Float.POSITIVE_INFINITY : getPathLength(shortestPath, distances);
         for (List<Integer> path : paths) {
             float dist = getPathLength(path, distances);
             if (dist < minDistance) {
@@ -157,16 +146,19 @@ public class TownsCanvas extends CanvasPanel {
 
     @Override
     protected void draw(Graphics g) {
-        background(g, Color.BLACK);
+        background(g);
         g.fillRect(0, 0, getCanvasWidth(), getCanvasHeight());
 
-        drawRoads(g);
+        if (!hidePaths) {
+            drawRoads(g);
+        }
+        drawShortestPath(g);
         drawTowns(g);
         drawAnts(g);
     }
 
-    private void background(Graphics g, Color color) {
-        g.setColor(color);
+    private void background(Graphics g) {
+        g.setColor(Color.BLACK);
         g.fillRect(0, 0, getCanvasWidth(), getCanvasHeight());
     }
     
@@ -210,20 +202,25 @@ public class TownsCanvas extends CanvasPanel {
                 });
     }
 
+    private void drawShortestPath(Graphics g) {
+        if (shortestPath == null) {
+            return;
+        }
+        g.setColor(Color.CYAN);
+        for (int i = 0; i < shortestPath.size(); i++) {
+            Town a = towns.get(shortestPath.get(i));
+            Town b = towns.get(shortestPath.get((i + 1) % shortestPath.size()));
+            g.drawLine(java.lang.Math.round(a.x()), java.lang.Math.round(a.y()), java.lang.Math.round(b.x()), java.lang.Math.round(b.y()));
+        }
+    }
+
     private void drawTowns(Graphics g) {
-        Font font = g.getFont();
-        Font font1 = font.deriveFont(Font.BOLD, 16f);
-        g.setFont(font1);
-        int index = 0;
         for (Town town : towns) {
             g.setColor(Color.WHITE);
             float d = town.d();
             float x = town.x();
             float y = town.y();
             g.fillOval(java.lang.Math.round(x - d / 2), java.lang.Math.round(y - d / 2), java.lang.Math.round(d), java.lang.Math.round(d));
-            g.setColor(Color.YELLOW);
-            g.drawString(String.valueOf(index), Math.round(x + d / 2 + 1), Math.round(y));
-            index++;
         }
     }
 

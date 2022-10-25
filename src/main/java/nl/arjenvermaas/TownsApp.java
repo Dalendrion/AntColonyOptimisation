@@ -13,13 +13,13 @@ public class TownsApp {
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame();
             AcoConfig config = new AcoConfig.AcoConfigBuilder()
-                    .withNumTowns(10)
+                    .withNumTowns(100)
                     .withNumAnts(20)
                     .build();
             TownsCanvas canvas = new TownsCanvas(700, 440, config);
             AnimationPanel animationPanel = new AnimationPanel(canvas);
             animationPanel.addAction("Erase Pheromones", "ResetPheromones", canvas::resetPathsWhenReady);
-            animationPanel.addAction("Decide Path", "DecidePath", canvas::decidePath);
+            animationPanel.addAction("Hide Paths", "HidePaths", canvas::hidePaths);
             frame.add(animationPanel);
             frame.setResizable(false);
             frame.pack();
